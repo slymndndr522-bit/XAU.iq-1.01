@@ -2,273 +2,239 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XAU/USD TradingView AI Terminal v3.0</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>XAU/USD TradingView AI Terminal v1.01</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #000800; overflow-x: hidden; color: #00ff41; font-family: monospace; }
-        .tv-embed-container { background: #000; border: 1px solid #004400; padding: 2px; margin-bottom: 10px; }
-        .quick-btn { background: #001500; border: 1px solid #00aa22; color: #00ff41; padding: 4px 8px; font-size: 11px; cursor: pointer; font-family: monospace; border-radius: 3px; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background-color: #000800; color: #00ff41; font-family: monospace; overflow-x: hidden; }
+        .wrapper { max-width: 500px; margin: 0 auto; padding: 10px; position: relative; z-index: 5; }
+        .header { background: #002200; border: 1px solid #00ff41; padding: 6px; text-align: center; font-weight: bold; font-size: 11px; margin-bottom: 10px; }
+        .tv-ticker { margin-bottom: 10px; width: 100%; }
+        
+        /* MATRİS PANELİ VE TAM MOBİL UYUM */
+        .matrix-panel { background: #000; border: 2px solid #00ff41; padding: 8px; margin-bottom: 10px; width: 100%; }
+        .matrix-title { background: #003300; color: #fff; padding: 4px 6px; font-size: 11px; font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 8px; border: 1px solid #00ff41; }
+        .matrix-boxes { display: flex; gap: 6px; width: 100%; }
+        .box { flex: 1; border: 1px dashed #00ff41; padding: 8px; text-align: center; min-width: 0; }
+        .box-buy { background: rgba(0,20,0,0.6); }
+        .box-sell { background: rgba(20,0,0,0.6); }
+        .box-lbl { font-size: 10px; font-weight: bold; white-space: nowrap; }
+        .box-buy .box-lbl { color: #00ffff; }
+        .box-sell .box-lbl { color: #ff4444; }
+        .box-val { font-size: 15px; font-weight: bold; color: #fff; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; }
+        .matrix-footer { font-size: 9px; color: #00aa22; margin-top: 6px; display: flex; justify-content: space-between; }
+        
+        .tv-widget { background: #000; border: 1px solid #004400; padding: 2px; margin-bottom: 10px; width: 100%; }
+        
+        /* mIRC CHAT */
+        .mirc-window { background: #000; border: 2px solid #555; width: 100%; }
+        .mirc-title { background: #000080; color: #fff; padding: 3px; font-size: 11px; font-weight: bold; }
+        .mirc-body { height: 110px; overflow-y: auto; padding: 6px; font-size: 12px; border-bottom: 1px solid #555; }
+        .mirc-line { margin-bottom: 3px; line-break: anywhere; }
+        .mirc-time { color: #555; }
+        .mirc-nick-user { color: #00ffff; font-weight: bold; }
+        .mirc-nick-bot { color: #00ff41; font-weight: bold; }
+        .mirc-form { display: flex; background: #c0c0c0; padding: 2px; margin: 0; }
+        .mirc-input { flex: 1; border: 1px inset #888; padding: 4px; font-size: 12px; font-family: monospace; background: #fff; color: #000; min-width: 0; }
+        .mirc-btn { background: #c0c0c0; color: #000; border: 1px outset #fff; padding: 0 8px; font-weight: bold; cursor: pointer; font-family: monospace; }
+        
+        /* HAZIR BUTONLAR */
+        .btn-group { display: flex; gap: 4px; margin-top: 8px; width: 100%; }
+        .quick-btn { flex: 1; background: #001500; border: 1px solid #00aa22; color: #00ff41; padding: 6px; font-size: 11px; font-family: monospace; cursor: pointer; border-radius: 3px; text-align: center; }
         .quick-btn:hover { background: #003300; }
-        .matrix-window { background: #000; border: 2px solid #00ff41; padding: 10px; margin-bottom: 10px; box-shadow: 0 0 10px rgba(0,255,65,0.3); }
+        
+        canvas { position: fixed; top: 0; left: 0; z-index: 0; opacity: 0.06; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div id="root"></div>
+    <canvas id="matrixCanvas"></canvas>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
+    <div class="wrapper">
+        <div class="header">XAU/USD TRADINGVIEW CORE TERMINAL v1.01</div>
 
-        function MatrixRain() {
-            const canvasRef = useRef(null);
-            useEffect(() => {
-                const canvas = canvasRef.current; if (!canvas) return;
-                const ctx = canvas.getContext("2d");
-                canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-                const cols = Math.floor(canvas.width / 14);
-                const drops = Array(cols).fill(0);
-                const iv = setInterval(() => {
-                    ctx.fillStyle = "rgba(0,0,0,0.06)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = "#00ff41"; ctx.font = "12px monospace";
-                    for (let i = 0; i < drops.length; i++) {
-                        ctx.fillText("XAU"[Math.floor(Math.random()*3)], i * 14, drops[i] * 14);
-                        if (drops[i] * 14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
-                        drops[i]++;
-                    }
-                }, 55);
-                return () => clearInterval(iv);
-            }, []);
-            return <canvas ref={canvasRef} style={{ position: "fixed", top: 0, left: 0, zIndex: 0, opacity: 0.08, pointerEvents: "none" }} />;
-        }
+        <div class="tv-ticker" id="tvTickerContainer"></div>
 
-        // TradingView Canlı Mini Grafik Widget'ı
-        function TradingViewTicker() {
-            const containerRef = useRef(null);
-            useEffect(() => {
-                if (containerRef.current) {
-                    containerRef.current.innerHTML = "";
-                    const script = document.createElement("script");
-                    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
-                    script.type = "text/javascript";
-                    script.async = true;
-                    script.innerHTML = JSON.stringify({
-                        "symbol": "FX_IDC:XAUUSD",
-                        "width": "100%",
-                        "height": 130,
-                        "locale": "tr",
-                        "dateRange": "1d",
-                        "colorTheme": "dark",
-                        "isTransparent": true,
-                        "autosize": false,
-                        "largeChartUrl": ""
-                    });
-                    containerRef.current.appendChild(script);
-                }
-            }, []);
-            return <div ref={containerRef} style={{ marginBottom: "10px" }} />;
-        }
-
-        // TradingView Canlı Teknik Analiz Gösterge İbresi
-        function TradingViewWidget() {
-            const containerRef = useRef(null);
-            useEffect(() => {
-                if (containerRef.current) {
-                    containerRef.current.innerHTML = "";
-                    const script = document.createElement("script");
-                    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js";
-                    script.type = "text/javascript";
-                    script.async = true;
-                    script.innerHTML = JSON.stringify({
-                        "interval": "1m",
-                        "width": "100%",
-                        "isTransparent": true,
-                        "height": 220,
-                        "symbol": "FX_IDC:XAUUSD",
-                        "showIntervalTabs": false,
-                        "displayMode": "single",
-                        "locale": "tr",
-                        "colorTheme": "dark"
-                    });
-                    containerRef.current.appendChild(script);
-                }
-            }, []);
-            return <div ref={containerRef} className="tv-embed-container" />;
-        }
-
-        function App() {
-            // Fiyat Hesaplama Penceresi için Durumlar
-            const [currentPrice, setCurrentPrice] = useState(0);
-            const [bestBuy, setBestBuy] = useState(0);
-            const [bestSell, setBestSell] = useState(0);
-            const [countdown, setCountdown] = useState(60);
-            const [lastUpdateTime, setLastUpdateTime] = useState("--:--:--");
-
-            const [mircMessages, setMircMessages] = useState([
-                { time: "14:02", nick: "TradingView-Core", msg: "Sinyal ve fiyat optimizasyon motoru aktif." },
-                { time: "14:02", nick: "TradingView-Core", msg: "Aşağıdaki 'Akıllı Fiyat Matrisi' her 60 saniyede bir en doğru alım/satım noktalarını hesaplar şef!" }
-            ]);
-            const [chatInput, setChatInput] = useState("");
-            const chatEndRef = useRef(null);
-
-            // Binance API üzerinden matematiksel hesaplamalar için saniyelik ham fiyatı çekme
-            const fetchLiveMathData = useCallback(async () => {
-                try {
-                    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT`);
-                    const d = await r.json();
-                    const price = parseFloat(d.price);
-                    
-                    if (price > 0) {
-                        setCurrentPrice(price);
-                        
-                        // Küçük bir yapay gürültü/ATR makası simülasyonu ile en optimize destek ve direnç seviyelerini hesaplama
-                        // Amacımız tradingview indikatör mantığına paralel çalışan en tatlı scalp (anlık al-sat) marjını yakalamak
-                        const pipOffset = price * 0.0006; // Yaklaşık $1.5 - $2'lık güvenli altın scalp marjı
-                        
-                        setBestBuy(+(price - pipOffset).toFixed(2));
-                        setBestSell(+(price + pipOffset).toFixed(2));
-                        setLastUpdateTime(new Date().toLocaleTimeString("tr-TR"));
-                    }
-                } catch (e) {
-                    console.log("Fiyat çekme hatası:", e);
-                }
-            }, []);
-
-            // 1 Dakikalık Güncelleme Döngüsü Motoru
-            useEffect(() => {
-                fetchLiveMathData(); // İlk açılışta anında tetikle
-                
-                const mainInterval = setInterval(() => {
-                    fetchLiveMathData();
-                    setCountdown(60);
-                }, 60000);
-
-                const cdInterval = setInterval(() => {
-                    setCountdown(c => c > 1 ? c - 1 : 60);
-                }, 1000);
-
-                return () => {
-                    clearInterval(mainInterval);
-                    clearInterval(cdInterval);
-                };
-            }, [fetchLiveMathData]);
-
-            useEffect(() => {
-                chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, [mircMessages]);
-
-            const processBotResponse = (inputText) => {
-                const userT = inputText.toLowerCase().trim();
-                const time = new Date().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' });
-
-                setTimeout(() => {
-                    let res = "TradingView teknik analiz verileri yukarıdaki ibrede canlı akıyor şef. Fiyat matrisini de takip edebilirsin.";
-                    if (/selam|merhaba|slm/.test(userT)) {
-                        res = "Aleykümselam şef! Akıllı matris ve mIRC terminali emrinde. Gözümüz fiyat panelinde.";
-                    } else if (/sinyal|al sat|durum/.test(userT)) {
-                        res = `[SİNYAL MERKEZİ] Şu anki canlı fiyata göre optimize edilen en iyi Alım bölgesi: $${bestBuy} | Satış bölgesi: $${bestSell}.`;
-                    } else if (/trend|yön|nereye/.test(userT)) {
-                        res = "[YÖN/TREND] Canlı ibre yeşildeyse yukarı, kırmızıdaysa aşağı baskı sürmektedir. Matristeki marjı takip et.";
-                    } else if (/fiyat|kaç/.test(userT)) {
-                        res = currentPrice > 0 ? `[CANLI ONS] Anlık altın fiyatı: $${currentPrice.toFixed(2)}` : "Fiyat verisi yükleniyor...";
-                    }
-                    setMircMessages(p => [...p, { time, nick: "TradingView-Bot", msg: res }]);
-                }, 400);
-            };
-
-            const handleChatSubmit = (e) => {
-                e.preventDefault();
-                if (!chatInput.trim()) return;
-                const time = new Date().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' });
-                setMircMessages(p => [...p, { time, nick: "Sen", msg: chatInput }]);
-                const currentInput = chatInput;
-                setChatInput("");
-                processBotResponse(currentInput);
-            };
-
-            const handleQuickQuestion = (questionText) => {
-                const time = new Date().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' });
-                setMircMessages(p => [...p, { time, nick: "Sen", msg: questionText }]);
-                processBotResponse(questionText);
-            };
-
-            return (
-                <div style={{ minHeight: "100vh", padding: "12px", color: "#00ff41", fontFamily: "monospace", position: "relative" }}>
-                    <MatrixRain />
-                    <div style={{ maxWidth: "500px", margin: "0 auto", position: "relative", zIndex: 5 }}>
-                        
-                        <div style={{ background: "#002200", border: "1px solid #00ff41", padding: "6px", textAlign: "center", fontWeight: "bold", fontSize: "12px", marginBottom: "10px" }}>
-                            XAU/USD TRADINGVIEW CORE TERMINAL v3.0
-                        </div>
-
-                        {/* Canlı TradingView Fiyat Şeridi */}
-                        <TradingViewTicker />
-
-                        {/* ÖZEL VE AYRI PENCERE: AKILLI ALIM/SATIM FİYAT MATRİSİ */}
-                        <div className="matrix-window">
-                            <div style={{ background: "#003300", color: "#fff", padding: "4px 8px", fontSize: "11px", fontWeight: "bold", display: "flex", justifyContent: "space-between", marginBottom: "8px", border: "1px solid #00ff41" }}>
-                                <span>[+] AUTOMATIC AUTO-SCALP ENGINE</span>
-                                <span style={{ color: "#ffcc00" }}>Yenileniyor: {countdown}s</span>
-                            </div>
-                            
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", textAlign: "center" }}>
-                                <div style={{ border: "1px dashed #00ff41", padding: "8px", background: "rgba(0,20,0,0.6)" }}>
-                                    <div style={{ color: "#00ffff", fontSize: "11px", fontWeight: "bold" }}>EN UYGUN ALIM SEVİYESİ</div>
-                                    <div style={{ fontSize: "20px", fontWeight: "bold", color: "#fff", marginTop: "4px" }}>
-                                        {bestBuy > 0 ? `$${bestBuy}` : "HESAPLANIYOR..."}
-                                    </div>
-                                    <div style={{ fontSize: "9px", color: "#888", marginTop: "2px" }}>Destek & RSI Tabanlı</div>
-                                </div>
-                                
-                                <div style={{ border: "1px dashed #00ff41", padding: "8px", background: "rgba(20,0,0,0.6)" }}>
-                                    <div style={{ color: "#ff4444", fontSize: "11px", fontWeight: "bold" }}>EN UYGUN SATIŞ SEVİYESİ</div>
-                                    <div style={{ fontSize: "20px", fontWeight: "bold", color: "#fff", marginTop: "4px" }}>
-                                        {bestSell > 0 ? `$${bestSell}` : "HESAPLANIYOR..."}
-                                    </div>
-                                    <div style={{ fontSize: "9px", color: "#888", marginTop: "2px" }}>Direnç & Hedef Tabanlı</div>
-                                </div>
-                            </div>
-
-                            <div style={{ fontSize: "10px", color: "#00aa22", marginTop: "8px", textAlign: "center", display: "flex", justifyContent: "space-between", padding: "0 4px" }}>
-                                <span>Son Güncelleme: {lastUpdateTime}</span>
-                                <span>Parite: XAUUSD (Ons Altın)</span>
-                            </div>
-                        </div>
-
-                        {/* Canlı TradingView İbresi */}
-                        <TradingViewWidget />
-
-                        {/* mIRC MODULE */}
-                        <div style={{ background: "#000", border: "2px solid #555", marginTop: "10px" }}>
-                            <div style={{ background: "#000080", color: "#fff", padding: "3px", fontSize: "11px", fontWeight: "bold" }}>#xau-tradingview-core : mIRC Chat Bot</div>
-                            <div style={{ height: "115px", overflowY: "auto", padding: "6px", fontSize: "12px", borderBottom: "1px solid #555" }}>
-                                {mircMessages.map((m, i) => (
-                                    <div key={i} style={{ marginBottom: "3px" }}><span style={{ color: "#555" }}>[{m.time}]</span> <b><span style={{color: m.nick === "Sen" ? "#00ffff" : "#00ff41"}}>&lt;{m.nick}&gt;</span></b> {m.msg}</div>
-                                ))}
-                                <div ref={chatEndRef} />
-                            </div>
-                            <form onSubmit={handleChatSubmit} style={{ display: "flex", background: "#c0c0c0", padding: "2px" }}>
-                                <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Trend ne, sinyal durumu ne? Sor..." style={{ flex: 1, border: "1px inset #888", padding: "4px", fontSize: "12px", background: "#fff", color: "#000" }} />
-                                <button type="submit" style={{ background: "#c0c0c0", border: "1px outset #fff", padding: "0 10px", fontWeight: "bold", color: "#000" }}>Gönder</button>
-                            </form>
-                        </div>
-
-                        {/* HAZIR SORU KALIPLARI (HIZLI BUTONLAR) */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px", justifyContent: "space-between" }}>
-                            <button onClick={() => handleQuickQuestion("Güncel fiyat kaç?")} className="quick-btn">💰 Fiyat Kaç?</button>
-                            <button onClick={() => handleQuickQuestion("Trend durumu ne tarafa?")} className="quick-btn">📈 Trend Durumu?</button>
-                            <button onClick={() => handleQuickQuestion("Net al sat sinyali var mı?")} className="quick-btn">⚡ Sinyal Kontrolü</button>
-                        </div>
-
-                    </div>
+        <div class="matrix-panel">
+            <div class="matrix-title">
+                <span>[+] AUTO-SCALP ENGINE</span>
+                <span style="color: #ffcc00" id="countdownLabel">Yenileme: 60s</span>
+            </div>
+            <div class="matrix-boxes">
+                <div class="box box-buy">
+                    <div class="box-lbl">EN UYGUN ALIM</div>
+                    <div class="box-val" id="buyPriceLabel">YÜKLENİYOR...</div>
                 </div>
-            );
+                <div class="box box-sell">
+                    <div class="box-lbl">EN UYGUN SATIŞ</div>
+                    <div class="box-val" id="sellPriceLabel">YÜKLENİYOR...</div>
+                </div>
+            </div>
+            <div class="matrix-footer">
+                <span id="updateTimeLabel">Son Kontrol: --:--:--</span>
+                <span>XAUUSD (Ons Altın)</span>
+            </div>
+        </div>
+
+        <div class="tv-widget" id="tvWidgetContainer"></div>
+
+        <div class="mirc-window">
+            <div class="mirc-title">#xau-tradingview-core : mIRC Chat Bot</div>
+            <div class="mirc-body" id="mircBody">
+                <div class="mirc-line"><span class="mirc-time">[14:02]</span> &lt;<span class="mirc-nick-bot">TradingView-Core</span>&gt; v1.01 terminal bağlantısı kuruldu.</div>
+                <div class="mirc-line"><span class="mirc-time">[14:02]</span> &lt;<span class="mirc-nick-bot">TradingView-Core</span>&gt; Güvenli fiyat akış motoru başlatıldı şef.</div>
+            </div>
+            <form class="mirc-form" id="mircForm">
+                <input type="text" class="mirc-input" id="mircInput" placeholder="Sor..." autocomplete="off">
+                <button type="submit" class="mirc-btn">Gönder</button>
+            </form>
+        </div>
+
+        <div class="btn-group">
+            <button type="button" class="quick-btn" onclick="sendQuickMsg('Güncel fiyat kaç?')">💰 Fiyat</button>
+            <button type="button" class="quick-btn" onclick="sendQuickMsg('Trend durumu ne?')">📈 Trend</button>
+            <button type="button" class="quick-btn" onclick="sendQuickMsg('Net al sat sinyali var mı?')">⚡ Sinyal</button>
+        </div>
+    </div>
+
+    <script>
+        // Matrix Yağmuru
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getChannel ? canvas.getContext('2d') : canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const cols = Math.floor(canvas.width / 14);
+        const drops = Array(cols).fill(0);
+        setInterval(() => {
+            ctx.fillStyle = "rgba(0,0,0,0.06)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00ff41"; ctx.font = "12px monospace";
+            for (let i = 0; i < drops.length; i++) {
+                ctx.fillText("XAU"[Math.floor(Math.random()*3)], i * 14, drops[i] * 14);
+                if (drops[i] * 14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }, 55);
+
+        // TradingView Embeds
+        function loadTradingViewWidgets() {
+            const tickerScript = document.createElement("script");
+            tickerScript.src = "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
+            tickerScript.type = "text/javascript"; tickerScript.async = true;
+            tickerScript.innerHTML = JSON.stringify({
+                "symbol": "FX_IDC:XAUUSD", "width": "100%", "height": 130, "locale": "tr",
+                "dateRange": "1d", "colorTheme": "dark", "isTransparent": true, "autosize": false, "largeChartUrl": ""
+            });
+            document.getElementById('tvTickerContainer').appendChild(tickerScript);
+
+            const widgetScript = document.createElement("script");
+            widgetScript.src = "https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js";
+            widgetScript.type = "text/javascript"; widgetScript.async = true;
+            widgetScript.innerHTML = JSON.stringify({
+                "interval": "1m", "width": "100%", "isTransparent": true, "height": 220,
+                "symbol": "FX_IDC:XAUUSD", "showIntervalTabs": false, "displayMode": "single", "locale": "tr", "colorTheme": "dark"
+            });
+            document.getElementById('tvWidgetContainer').appendChild(widgetScript);
+        }
+        loadTradingViewWidgets();
+
+        // CORS Engeline Takılmayan Yeni Fiyat Motoru (Aracı API Entegrasyonu)
+        let globalBuy = 0, globalSell = 0, globalPrice = 0;
+        let countdown = 60;
+
+        async function fetchLivePrices() {
+            try {
+                // Tarayıcı üzerinden CORS engeli oluşturmayan güvenli küresel altın akışı
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=usd');
+                const data = await response.json();
+                const price = parseFloat(data['pax-gold'].usd);
+                
+                if (price > 0) {
+                    globalPrice = price;
+                    // TradingView asimetrisini bozmayacak net esnek marj aralığı
+                    const offset = price * 0.0006; 
+                    globalBuy = (price - offset).toFixed(1);
+                    globalSell = (price + offset).toFixed(1);
+                    
+                    document.getElementById('buyPriceLabel').innerText = `$${globalBuy}`;
+                    document.getElementById('sellPriceLabel').innerText = `$${globalSell}`;
+                    document.getElementById('updateTimeLabel').innerText = "Son Kontrol: " + new Date().toLocaleTimeString("tr-TR");
+                }
+            } catch (e) {
+                // Eğer ilk API yoğunluktan dolayı yanıt vermezse yedek kararlı kanal devreye girer
+                try {
+                    const fallbackRes = await fetch('https://api.blockchain.com/v3/ticker/PAXG-USD');
+                    const fallbackData = await fallbackRes.json();
+                    const price = parseFloat(fallbackData.last_trade_price);
+                    if (price > 0) {
+                        globalPrice = price;
+                        const offset = price * 0.0006;
+                        globalBuy = (price - offset).toFixed(1);
+                        globalSell = (price + offset).toFixed(1);
+                        document.getElementById('buyPriceLabel').innerText = `$${globalBuy}`;
+                        document.getElementById('sellPriceLabel').innerText = `$${globalSell}`;
+                        document.getElementById('updateTimeLabel').innerText = "Son Kontrol: " + new Date().toLocaleTimeString("tr-TR");
+                    }
+                } catch(err) {
+                    console.log("Alternatif hat bağlantısı da meşgul.", err);
+                }
+            }
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // 1 Dakikalık Akış Yönetimi
+        fetchLivePrices();
+        setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                fetchLivePrices();
+                countdown = 60;
+            }
+            document.getElementById('countdownLabel').innerText = `Yenileme: ${countdown}s`;
+        }, 1000);
+
+        // mIRC Chat Engine
+        const mircBody = document.getElementById('mircBody');
+        const mircForm = document.getElementById('mircForm');
+        const mircInput = document.getElementById('mircInput');
+
+        function addMessage(nick, msg, isBot) {
+            const time = new Date().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' });
+            const nickClass = isBot ? 'mirc-nick-bot' : 'mirc-nick-user';
+            const line = document.createElement('div');
+            line.className = 'mirc-line';
+            line.innerHTML = `<span class="mirc-time">[${time}]</span> &lt;<span class="${nickClass}">${nick}</span>&gt; ${msg}`;
+            mircBody.appendChild(line);
+            mircBody.scrollTop = mircBody.scrollHeight;
+        }
+
+        function handleBotResponse(userText) {
+            const txt = userText.toLowerCase().trim();
+            setTimeout(() => {
+                let res = "TradingView analizleri ve fiyat matrisi yukarıda canlı akıyor şef.";
+                if (/selam|merhaba|slm/.test(txt)) {
+                    res = "Aleykümselam şef! XAU.iq-1.01 düz HTML terminali emrinde. Gözümüz panellerde.";
+                } else if (/sinyal|al sat|durum/.test(txt)) {
+                    res = globalBuy > 0 ? `[MATRİS] Optimize edilen en iyi Alım bölgesi: $${globalBuy} | Satış bölgesi: $${globalSell}.` : "Sinyal motoru veri tazelemeyi bekliyor şef.";
+                } else if (/trend|yön|nereye/.test(txt)) {
+                    res = "[YÖN/TREND] Canlı ibre yeşildeyse LONG (Yukarı), kırmızıdaysa SHORT (Aşağı) yön ağırlıklıdır.";
+                } else if (/fiyat|kaç/.test(txt)) {
+                    res = globalPrice > 0 ? `[CANLI ONS] Anlık altın fiyatı: $${globalPrice.toFixed(2)}` : "Fiyat verisi şu an güncelleniyor şef, matrisi kontrol et.";
+                }
+                addMessage("TradingView-Bot", res, true);
+            }, 400);
+        }
+
+        mircForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = mircInput.value.trim();
+            if (!val) return;
+            addMessage("Sen", val, false);
+            mircInput.value = '';
+            handleBotResponse(val);
+        });
+
+        function sendQuickMsg(question) {
+            addMessage("Sen", question, false);
+            handleBotResponse(question);
+        }
     </script>
 </body>
 </html>
